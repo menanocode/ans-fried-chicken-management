@@ -189,7 +189,66 @@ CREATE TRIGGER tr_on_sale_item_inserted
   EXECUTE FUNCTION on_sale_item_inserted();
 
 -- ============================================
--- 9. TRIGGER: Recalculate HPP when recipe changes
+-- 9. DELETE SALE + RESTORE STOCK (RPC)
+-- ============================================
+CREATE OR REPLACE FUNCTION delete_sale_with_stock_restore(p_sale_id UUID)
+RETURNS sales
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_sale sales%ROWTYPE;
+  v_role TEXT;
+  v_user_outlet UUID;
+BEGIN
+  SELECT * INTO v_sale
+  FROM sales
+  WHERE id = p_sale_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Transaksi tidak ditemukan';
+  END IF;
+
+  SELECT role, outlet_id
+  INTO v_role, v_user_outlet
+  FROM profiles
+  WHERE id = auth.uid();
+
+  IF v_role IS NULL THEN
+    RAISE EXCEPTION 'Akses ditolak';
+  END IF;
+
+  IF v_role = 'outlet' AND v_sale.outlet_id IS DISTINCT FROM v_user_outlet THEN
+    RAISE EXCEPTION 'Akses ditolak untuk outlet lain';
+  END IF;
+
+  IF v_role NOT IN ('admin', 'outlet') THEN
+    RAISE EXCEPTION 'Role tidak diizinkan menghapus transaksi';
+  END IF;
+
+  INSERT INTO outlet_stock (outlet_id, product_id, stok_tersedia, updated_at)
+  SELECT
+    v_sale.outlet_id,
+    si.product_id,
+    SUM(si.jumlah),
+    NOW()
+  FROM sale_items si
+  WHERE si.sale_id = p_sale_id
+  GROUP BY si.product_id
+  ON CONFLICT (outlet_id, product_id)
+  DO UPDATE SET
+    stok_tersedia = outlet_stock.stok_tersedia + EXCLUDED.stok_tersedia,
+    updated_at = NOW();
+
+  DELETE FROM sales WHERE id = p_sale_id;
+
+  RETURN v_sale;
+END;
+$$;
+
+-- ============================================
+-- 10. TRIGGER: Recalculate HPP when recipe changes
 -- ============================================
 CREATE OR REPLACE FUNCTION on_recipe_change()
 RETURNS TRIGGER AS $$
@@ -205,7 +264,7 @@ CREATE TRIGGER tr_on_recipe_change
   EXECUTE FUNCTION on_recipe_change();
 
 -- ============================================
--- 10. TRIGGER: Recalculate HPP when ingredient price changes
+-- 11. TRIGGER: Recalculate HPP when ingredient price changes
 -- ============================================
 CREATE OR REPLACE FUNCTION on_ingredient_price_change()
 RETURNS TRIGGER AS $$

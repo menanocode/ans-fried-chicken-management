@@ -16,6 +16,7 @@ ALTER TABLE stock_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE stock_request_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sales ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sale_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE activity_logs ENABLE ROW LEVEL SECURITY;
 
 -- Helper function to get current user's role
 CREATE OR REPLACE FUNCTION get_user_role()
@@ -120,6 +121,9 @@ CREATE POLICY "sales_insert" ON sales FOR INSERT WITH CHECK (
 CREATE POLICY "sales_update" ON sales FOR UPDATE USING (
   get_user_role() = 'admin' OR (get_user_role() = 'outlet' AND outlet_id = get_user_outlet_id())
 );
+CREATE POLICY "sales_delete" ON sales FOR DELETE USING (
+  get_user_role() = 'admin' OR (get_user_role() = 'outlet' AND outlet_id = get_user_outlet_id())
+);
 
 -- ============================================
 -- SALE_ITEMS
@@ -127,6 +131,35 @@ CREATE POLICY "sales_update" ON sales FOR UPDATE USING (
 CREATE POLICY "sale_items_select" ON sale_items FOR SELECT USING (true);
 CREATE POLICY "sale_items_insert" ON sale_items FOR INSERT WITH CHECK (true);
 CREATE POLICY "sale_items_update" ON sale_items FOR UPDATE USING (get_user_role() = 'admin');
+CREATE POLICY "sale_items_delete" ON sale_items FOR DELETE USING (
+  get_user_role() = 'admin'
+  OR (
+    get_user_role() = 'outlet'
+    AND EXISTS (
+      SELECT 1 FROM sales s
+      WHERE s.id = sale_items.sale_id
+        AND s.outlet_id = get_user_outlet_id()
+    )
+  )
+);
+
+-- ============================================
+-- ACTIVITY_LOGS
+-- ============================================
+CREATE POLICY "activity_logs_select" ON activity_logs FOR SELECT USING (
+  get_user_role() IN ('admin', 'management')
+  OR actor_id = auth.uid()
+  OR (outlet_id IS NOT NULL AND outlet_id = get_user_outlet_id())
+);
+
+CREATE POLICY "activity_logs_insert" ON activity_logs FOR INSERT WITH CHECK (
+  actor_id = auth.uid()
+  AND (
+    get_user_role() = 'admin'
+    OR outlet_id IS NULL
+    OR outlet_id = get_user_outlet_id()
+  )
+);
 
 -- ============================================
 -- AUTO-CREATE PROFILE on signup

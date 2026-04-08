@@ -1,5 +1,6 @@
 import { supabase } from '../config/supabase.js';
 import { auth } from './auth.js';
+import { recordActivity } from './activity-log.js';
 import { toISODate } from '../utils/helpers.js';
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
@@ -68,6 +69,21 @@ function invalidateCache() {
   clearApiCache();
 }
 
+function queueActivityLog(payload) {
+  void recordActivity(payload).catch(() => {
+    // Logging tidak boleh memblokir operasi utama.
+  });
+}
+
+function isMissingRpcError(error) {
+  const code = error?.code || '';
+  const message = String(error?.message || '').toLowerCase();
+  return (
+    code === 'PGRST202' ||
+    message.includes('delete_sale_with_stock_restore') && message.includes('not found')
+  );
+}
+
 // ======== OUTLETS ========
 export async function getOutlets() {
   return cachedQuery('outlets:list', null, async () => {
@@ -89,6 +105,14 @@ export async function createOutlet(outlet) {
   const { data, error } = await supabase.from('outlets').insert(outlet).select().single();
   if (error) throw error;
   invalidateCache();
+  queueActivityLog({
+    action: 'create',
+    entity_type: 'outlet',
+    entity_id: data.id,
+    outlet_id: data.id,
+    title: 'Outlet ditambahkan',
+    description: `Outlet ${data.nama} berhasil dibuat.`,
+  });
   return data;
 }
 
@@ -96,6 +120,14 @@ export async function updateOutlet(id, updates) {
   const { data, error } = await supabase.from('outlets').update(updates).eq('id', id).select().single();
   if (error) throw error;
   invalidateCache();
+  queueActivityLog({
+    action: 'update',
+    entity_type: 'outlet',
+    entity_id: id,
+    outlet_id: data?.id || id,
+    title: 'Outlet diperbarui',
+    description: `Perubahan data outlet ${data?.nama || ''}`.trim(),
+  });
   return data;
 }
 
@@ -103,6 +135,14 @@ export async function deleteOutlet(id) {
   const { error } = await supabase.from('outlets').delete().eq('id', id);
   if (error) throw error;
   invalidateCache();
+  queueActivityLog({
+    action: 'delete',
+    entity_type: 'outlet',
+    entity_id: id,
+    outlet_id: id,
+    title: 'Outlet dihapus',
+    description: 'Satu outlet telah dihapus dari sistem.',
+  });
 }
 
 // ======== CATEGORIES ========
@@ -118,6 +158,13 @@ export async function createCategory(cat) {
   const { data, error } = await supabase.from('categories').insert(cat).select().single();
   if (error) throw error;
   invalidateCache();
+  queueActivityLog({
+    action: 'create',
+    entity_type: 'category',
+    entity_id: data.id,
+    title: 'Kategori ditambahkan',
+    description: `Kategori ${data.nama} berhasil dibuat.`,
+  });
   return data;
 }
 
@@ -148,6 +195,13 @@ export async function createProduct(product) {
   // Also create warehouse_stock entry
   await supabase.from('warehouse_stock').insert({ product_id: data.id, stok_tersedia: 0, stok_minimum: 50 });
   invalidateCache();
+  queueActivityLog({
+    action: 'create',
+    entity_type: 'product',
+    entity_id: data.id,
+    title: 'Produk ditambahkan',
+    description: `Produk ${data.nama} berhasil dibuat.`,
+  });
   return data;
 }
 
@@ -155,6 +209,13 @@ export async function updateProduct(id, updates) {
   const { data, error } = await supabase.from('products').update(updates).eq('id', id).select().single();
   if (error) throw error;
   invalidateCache();
+  queueActivityLog({
+    action: 'update',
+    entity_type: 'product',
+    entity_id: id,
+    title: 'Produk diperbarui',
+    description: `Produk ${data?.nama || ''} diperbarui.`.trim(),
+  });
   return data;
 }
 
@@ -162,6 +223,13 @@ export async function deleteProduct(id) {
   const { error } = await supabase.from('products').delete().eq('id', id);
   if (error) throw error;
   invalidateCache();
+  queueActivityLog({
+    action: 'delete',
+    entity_type: 'product',
+    entity_id: id,
+    title: 'Produk dihapus',
+    description: 'Satu produk telah dihapus dari sistem.',
+  });
 }
 
 // ======== INGREDIENTS ========
@@ -177,6 +245,13 @@ export async function createIngredient(ing) {
   const { data, error } = await supabase.from('ingredients').insert(ing).select().single();
   if (error) throw error;
   invalidateCache();
+  queueActivityLog({
+    action: 'create',
+    entity_type: 'ingredient',
+    entity_id: data.id,
+    title: 'Bahan baku ditambahkan',
+    description: `Bahan baku ${data.nama} berhasil dibuat.`,
+  });
   return data;
 }
 
@@ -184,6 +259,13 @@ export async function updateIngredient(id, updates) {
   const { data, error } = await supabase.from('ingredients').update(updates).eq('id', id).select().single();
   if (error) throw error;
   invalidateCache();
+  queueActivityLog({
+    action: 'update',
+    entity_type: 'ingredient',
+    entity_id: id,
+    title: 'Bahan baku diperbarui',
+    description: `Bahan baku ${data?.nama || ''} diperbarui.`.trim(),
+  });
   return data;
 }
 
@@ -191,6 +273,13 @@ export async function deleteIngredient(id) {
   const { error } = await supabase.from('ingredients').delete().eq('id', id);
   if (error) throw error;
   invalidateCache();
+  queueActivityLog({
+    action: 'delete',
+    entity_type: 'ingredient',
+    entity_id: id,
+    title: 'Bahan baku dihapus',
+    description: 'Satu bahan baku telah dihapus dari sistem.',
+  });
 }
 
 // ======== PRODUCT RECIPES ========
@@ -218,6 +307,17 @@ export async function upsertRecipe(recipe) {
     .select().single();
   if (error) throw error;
   invalidateCache();
+  queueActivityLog({
+    action: 'update',
+    entity_type: 'recipe',
+    entity_id: data.id,
+    title: 'Resep produk diperbarui',
+    description: 'Komposisi resep produk telah diperbarui.',
+    metadata: {
+      product_id: data.product_id,
+      ingredient_id: data.ingredient_id,
+    },
+  });
   return data;
 }
 
@@ -227,6 +327,13 @@ export async function deleteRecipe(productId, ingredientId) {
     .match({ product_id: productId, ingredient_id: ingredientId });
   if (error) throw error;
   invalidateCache();
+  queueActivityLog({
+    action: 'delete',
+    entity_type: 'recipe',
+    title: 'Resep produk dihapus',
+    description: 'Salah satu komponen resep produk telah dihapus.',
+    metadata: { product_id: productId, ingredient_id: ingredientId },
+  });
 }
 
 // ======== WAREHOUSE STOCK ========
@@ -244,6 +351,14 @@ export async function updateWarehouseStock(id, updates) {
   const { data, error } = await supabase.from('warehouse_stock').update(updates).eq('id', id).select().single();
   if (error) throw error;
   invalidateCache();
+  queueActivityLog({
+    action: 'update',
+    entity_type: 'warehouse_stock',
+    entity_id: data.id,
+    title: 'Stok gudang diperbarui',
+    description: 'Stok gudang pusat telah diperbarui.',
+    metadata: { product_id: data.product_id, stok_tersedia: data.stok_tersedia },
+  });
   return data;
 }
 
@@ -295,6 +410,14 @@ export async function createStockRequest(outletId, items, notes) {
   if (itemsError) throw itemsError;
 
   invalidateCache();
+  queueActivityLog({
+    action: 'create',
+    entity_type: 'stock_request',
+    entity_id: request.id,
+    outlet_id: request.outlet_id,
+    title: 'Permintaan stok baru',
+    description: `Permintaan ${request.request_code || 'stok'} dibuat (${items.length} item).`,
+  });
   return request;
 }
 
@@ -317,6 +440,14 @@ export async function approveStockRequest(requestId, items) {
     .select().single();
   if (error) throw error;
   invalidateCache();
+  queueActivityLog({
+    action: 'approve',
+    entity_type: 'stock_request',
+    entity_id: requestId,
+    outlet_id: data.outlet_id,
+    title: 'Permintaan stok disetujui',
+    description: `Permintaan ${data.request_code || requestId} telah disetujui.`,
+  });
   return data;
 }
 
@@ -331,6 +462,14 @@ export async function rejectStockRequest(requestId) {
     .select().single();
   if (error) throw error;
   invalidateCache();
+  queueActivityLog({
+    action: 'reject',
+    entity_type: 'stock_request',
+    entity_id: requestId,
+    outlet_id: data.outlet_id,
+    title: 'Permintaan stok ditolak',
+    description: `Permintaan ${data.request_code || requestId} telah ditolak.`,
+  });
   return data;
 }
 
@@ -376,7 +515,81 @@ export async function createSale(outletId, items, tanggal, notes) {
   if (itemsError) throw itemsError;
 
   invalidateCache();
+  queueActivityLog({
+    action: 'checkout',
+    entity_type: 'sale',
+    entity_id: sale.id,
+    outlet_id: sale.outlet_id,
+    title: 'Transaksi penjualan baru',
+    description: `Transaksi ${sale.sale_code || sale.id} tersimpan (${items.length} item).`,
+    metadata: { total_amount: sale.total_amount },
+  });
   return sale;
+}
+
+export async function deleteSale(saleId) {
+  const { data: rpcDeletedSale, error: rpcError } = await supabase.rpc('delete_sale_with_stock_restore', {
+    p_sale_id: saleId,
+  });
+
+  let deletedSale = null;
+  if (!rpcError) {
+    deletedSale = Array.isArray(rpcDeletedSale) ? rpcDeletedSale[0] : rpcDeletedSale;
+  } else if (!isMissingRpcError(rpcError)) {
+    throw rpcError;
+  }
+
+  if (!deletedSale) {
+    const { data: sale, error: saleError } = await supabase.from('sales')
+      .select('id, sale_code, outlet_id, total_amount, sale_items(product_id, jumlah)')
+      .eq('id', saleId)
+      .single();
+    if (saleError) throw saleError;
+
+    const itemMap = new Map();
+    (sale.sale_items || []).forEach(item => {
+      const prevQty = itemMap.get(item.product_id) || 0;
+      itemMap.set(item.product_id, prevQty + Number(item.jumlah || 0));
+    });
+
+    const productIds = Array.from(itemMap.keys());
+    if (productIds.length > 0) {
+      const { data: stockRows, error: stockError } = await supabase.from('outlet_stock')
+        .select('product_id, stok_tersedia')
+        .eq('outlet_id', sale.outlet_id)
+        .in('product_id', productIds);
+      if (stockError) throw stockError;
+
+      const stockMap = new Map((stockRows || []).map(row => [row.product_id, Number(row.stok_tersedia || 0)]));
+      const restoreRows = productIds.map(productId => ({
+        outlet_id: sale.outlet_id,
+        product_id: productId,
+        stok_tersedia: (stockMap.get(productId) || 0) + (itemMap.get(productId) || 0),
+        updated_at: new Date().toISOString(),
+      }));
+
+      const { error: restoreError } = await supabase.from('outlet_stock')
+        .upsert(restoreRows, { onConflict: 'outlet_id,product_id' });
+      if (restoreError) throw restoreError;
+    }
+
+    const { error: deleteError } = await supabase.from('sales').delete().eq('id', saleId);
+    if (deleteError) throw deleteError;
+
+    deletedSale = sale;
+  }
+
+  invalidateCache();
+  queueActivityLog({
+    action: 'delete',
+    entity_type: 'sale',
+    entity_id: deletedSale.id || saleId,
+    outlet_id: deletedSale.outlet_id || null,
+    title: 'Transaksi dihapus',
+    description: `Transaksi ${deletedSale.sale_code || saleId} telah dihapus.`,
+    metadata: { total_amount: deletedSale.total_amount || 0 },
+  });
+  return deletedSale;
 }
 
 // ======== DASHBOARD STATS ========
@@ -488,10 +701,24 @@ export async function updateHppConfig(id, updates) {
     const { data, error } = await supabase.from('hpp_cost_config').insert(updates).select().single();
     if (error) throw error;
     invalidateCache();
+    queueActivityLog({
+      action: 'create',
+      entity_type: 'hpp_config',
+      entity_id: data.id,
+      title: 'Konfigurasi HPP dibuat',
+      description: 'Konfigurasi biaya HPP pertama kali disimpan.',
+    });
     return data;
   }
   const { data, error } = await supabase.from('hpp_cost_config').update(updates).eq('id', id).select().single();
   if (error) throw error;
   invalidateCache();
+  queueActivityLog({
+    action: 'update',
+    entity_type: 'hpp_config',
+    entity_id: id,
+    title: 'Konfigurasi HPP diperbarui',
+    description: 'Konfigurasi biaya HPP telah diperbarui.',
+  });
   return data;
 }

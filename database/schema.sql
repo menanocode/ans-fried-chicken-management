@@ -160,6 +160,23 @@ CREATE TABLE sale_items (
 );
 
 -- ============================================
+-- 13. ACTIVITY_LOGS (Notifikasi / Audit Log)
+-- ============================================
+CREATE TABLE activity_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  actor_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  actor_role VARCHAR(20) CHECK (actor_role IN ('admin', 'outlet', 'management')),
+  outlet_id UUID REFERENCES outlets(id) ON DELETE SET NULL,
+  action VARCHAR(30) NOT NULL DEFAULT 'update',
+  entity_type VARCHAR(40) NOT NULL DEFAULT 'system',
+  entity_id UUID,
+  title VARCHAR(160) NOT NULL,
+  description TEXT,
+  metadata JSONB,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================
 -- INDEXES
 -- ============================================
 CREATE INDEX idx_profiles_role ON profiles(role);
@@ -176,6 +193,9 @@ CREATE INDEX idx_sales_outlet ON sales(outlet_id);
 CREATE INDEX idx_sales_tanggal ON sales(tanggal);
 CREATE INDEX idx_sale_items_sale ON sale_items(sale_id);
 CREATE INDEX idx_sale_items_product ON sale_items(product_id);
+CREATE INDEX idx_activity_logs_created ON activity_logs(created_at DESC);
+CREATE INDEX idx_activity_logs_outlet ON activity_logs(outlet_id);
+CREATE INDEX idx_activity_logs_actor ON activity_logs(actor_id);
 
 -- ============================================
 -- UPDATED_AT TRIGGER

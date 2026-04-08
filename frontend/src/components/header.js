@@ -1,4 +1,129 @@
 import { getTheme, toggleTheme } from '../services/theme.js';
+import { openModal } from './modal.js';
+import {
+  getActivityLogs,
+  getUnreadActivityCount,
+  markActivityLogsSeen,
+} from '../services/activity-log.js';
+import { escapeHtml, formatDateTime } from '../utils/helpers.js';
+
+let notificationPollTimer = null;
+let activityUpdatedHandler = null;
+
+function actionLabel(action) {
+  const map = {
+    create: 'Ditambahkan',
+    update: 'Diperbarui',
+    delete: 'Dihapus',
+    approve: 'Disetujui',
+    reject: 'Ditolak',
+    checkout: 'Checkout',
+    system: 'Sistem',
+  };
+  return map[action] || 'Perubahan';
+}
+
+function actorLabel(role) {
+  if (!role) return 'Pengguna';
+  if (role === 'admin') return 'Admin';
+  if (role === 'outlet') return 'Outlet';
+  if (role === 'management') return 'Manajemen';
+  return role;
+}
+
+function renderLogItems(logs) {
+  if (!logs.length) {
+    return `
+      <div class="activity-log-empty">
+        <span class="material-icons-round">notifications_none</span>
+        <h4>Belum ada notifikasi</h4>
+        <p>Aktivitas perubahan data akan muncul di sini.</p>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="activity-log-list">
+      ${logs.map(log => `
+        <article class="activity-log-item">
+          <div class="activity-log-item-head">
+            <h4>${escapeHtml(log.title || 'Aktivitas baru')}</h4>
+            <span>${formatDateTime(log.created_at)}</span>
+          </div>
+          ${log.description ? `<p>${escapeHtml(log.description)}</p>` : ''}
+          <div class="activity-log-item-meta">
+            <span class="badge badge-secondary">${actionLabel(log.action)}</span>
+            <span>${actorLabel(log.actor_role)}</span>
+          </div>
+        </article>
+      `).join('')}
+    </div>
+  `;
+}
+
+async function syncNotificationDot() {
+  const dot = document.getElementById('notification-dot');
+  if (!dot) return;
+  try {
+    const unreadCount = await getUnreadActivityCount({ limit: 80 });
+    dot.style.display = unreadCount > 0 ? 'block' : 'none';
+  } catch {
+    dot.style.display = 'none';
+  }
+}
+
+function bindNotificationRealtime() {
+  if (activityUpdatedHandler) {
+    window.removeEventListener('activity-log-updated', activityUpdatedHandler);
+  }
+  activityUpdatedHandler = () => {
+    void syncNotificationDot();
+  };
+  window.addEventListener('activity-log-updated', activityUpdatedHandler);
+
+  if (notificationPollTimer) window.clearInterval(notificationPollTimer);
+  notificationPollTimer = window.setInterval(() => {
+    if (!document.getElementById('header-notifications')) {
+      window.clearInterval(notificationPollTimer);
+      notificationPollTimer = null;
+      return;
+    }
+    void syncNotificationDot();
+  }, 30000);
+}
+
+async function openNotificationsModal() {
+  await openModal(
+    'Log Notifikasi',
+    `
+      <div class="activity-log-body" id="activity-log-body">
+        <div class="loading-spinner"><div class="spinner"></div></div>
+      </div>
+    `,
+    {
+      footer: false,
+      size: 'lg',
+      onOpen: async (modal) => {
+        markActivityLogsSeen();
+        await syncNotificationDot();
+        const body = modal.querySelector('#activity-log-body');
+        if (!body) return;
+        try {
+          const logs = await getActivityLogs({ limit: 80 });
+          body.innerHTML = renderLogItems(logs);
+        } catch (error) {
+          body.innerHTML = `
+            <div class="activity-log-empty">
+              <span class="material-icons-round">error</span>
+              <h4>Gagal memuat notifikasi</h4>
+              <p>${escapeHtml(error.message || 'Terjadi kesalahan tidak terduga.')}</p>
+            </div>
+          `;
+        }
+      },
+    }
+  );
+}
 
 export function renderHeader(title, subtitle) {
   return `
@@ -65,5 +190,12 @@ export function initHeaderEvents({ onRefresh } = {}) {
     const isOpen = sidebar.classList.toggle('open');
     overlay.classList.toggle('visible', isOpen);
     document.body.classList.toggle('sidebar-open-mobile', isOpen);
+  });
+
+  bindNotificationRealtime();
+  void syncNotificationDot();
+
+  document.getElementById('header-notifications')?.addEventListener('click', async () => {
+    await openNotificationsModal();
   });
 }

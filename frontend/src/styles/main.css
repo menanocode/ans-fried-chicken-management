@@ -667,6 +667,19 @@ a:hover { color: var(--orange-300); }
   color: var(--text-primary);
 }
 
+.table-action-cell {
+  white-space: nowrap;
+}
+
+.icon-btn-danger {
+  color: var(--danger);
+}
+
+.icon-btn-danger:hover {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
 .btn-sm {
   padding: var(--sp-2) var(--sp-3);
   font-size: var(--font-xs);
@@ -941,6 +954,83 @@ tbody tr:last-child td {
   gap: var(--sp-3);
   padding: var(--sp-4) var(--sp-6);
   border-top: 1px solid var(--border-color);
+}
+
+.activity-log-body {
+  min-height: 280px;
+}
+
+.activity-log-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.activity-log-item {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: var(--sp-4);
+  background: var(--bg-secondary);
+}
+
+.activity-log-item-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-2);
+}
+
+.activity-log-item-head h4 {
+  font-size: var(--font-sm);
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.activity-log-item-head span {
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  white-space: nowrap;
+}
+
+.activity-log-item p {
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  line-height: 1.5;
+}
+
+.activity-log-item-meta {
+  margin-top: var(--sp-3);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  flex-wrap: wrap;
+}
+
+.activity-log-empty {
+  border: 1px dashed var(--border-color);
+  border-radius: var(--radius-md);
+  padding: var(--sp-8) var(--sp-5);
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.activity-log-empty .material-icons-round {
+  font-size: 40px;
+  margin-bottom: var(--sp-2);
+  opacity: 0.55;
+}
+
+.activity-log-empty h4 {
+  font-size: var(--font-base);
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.activity-log-empty p {
+  font-size: var(--font-sm);
 }
 
 /* ---- NOTIFICATION TOAST ---- */

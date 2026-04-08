@@ -1,6 +1,7 @@
 import { auth } from '../services/auth.js';
 import * as api from '../services/api.js';
 import * as notify from '../components/notification.js';
+import { confirmModal } from '../components/modal.js';
 import { formatDate, formatRupiah, getAppOpenISODate, escapeHtml } from '../utils/helpers.js';
 
 let historyRows = [];
@@ -45,10 +46,11 @@ export function renderHistory() {
             <th>Jumlah Item</th>
             <th>Total</th>
             <th>Catatan</th>
+            <th>Aksi</th>
           </tr>
         </thead>
         <tbody id="history-tbody">
-          <tr><td colspan="5"><div class="loading-spinner"><div class="spinner"></div></div></td></tr>
+          <tr><td colspan="6"><div class="loading-spinner"><div class="spinner"></div></div></td></tr>
         </tbody>
       </table>
     </div>
@@ -61,7 +63,7 @@ function renderHistoryRows(rows) {
   if (!tbody || !summary) return;
 
   if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="5"><div class="table-empty"><span class="material-icons-round">history</span><p>Belum ada transaksi pada rentang tanggal ini</p></div></td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6"><div class="table-empty"><span class="material-icons-round">history</span><p>Belum ada transaksi pada rentang tanggal ini</p></div></td></tr>';
     summary.innerHTML = `
       <div class="stat-card">
         <div class="stat-icon blue"><span class="material-icons-round">receipt_long</span></div>
@@ -88,6 +90,12 @@ function renderHistoryRows(rows) {
         <td>${itemCount} item</td>
         <td><strong style="color: var(--success);">${formatRupiah(row.total_amount)}</strong></td>
         <td style="max-width: 300px; white-space: normal;">${row.notes ? escapeHtml(row.notes) : '-'}</td>
+        <td class="table-action-cell">
+          <button type="button" class="btn btn-ghost btn-sm icon-btn-danger" data-delete-history-sale="${row.id}" title="Hapus transaksi">
+            <span class="material-icons-round">delete</span>
+            Hapus
+          </button>
+        </td>
       </tr>
     `;
   }).join('');
@@ -134,8 +142,33 @@ async function loadHistory() {
   }
 }
 
+async function deleteSaleFromHistory(saleId) {
+  const sale = historyRows.find(row => row.id === saleId);
+  const saleCode = sale?.sale_code || saleId;
+  const confirmed = await confirmModal(
+    'Hapus transaksi',
+    `Transaksi ${saleCode} akan dihapus dan stok akan dikembalikan. Lanjutkan?`
+  );
+  if (!confirmed) return;
+
+  try {
+    await api.deleteSale(saleId);
+    notify.success(`Transaksi ${saleCode} berhasil dihapus.`);
+    await loadHistory();
+  } catch (err) {
+    notify.error('Gagal menghapus transaksi: ' + err.message);
+  }
+}
+
 export async function initHistory() {
   if (!auth.isOutlet()) return;
   await loadHistory();
   document.getElementById('btn-filter-history')?.addEventListener('click', loadHistory);
+  document.getElementById('history-tbody')?.addEventListener('click', async (event) => {
+    const deleteBtn = event.target.closest('[data-delete-history-sale]');
+    if (!deleteBtn) return;
+    const saleId = deleteBtn.dataset.deleteHistorySale;
+    if (!saleId) return;
+    await deleteSaleFromHistory(saleId);
+  });
 }

@@ -1,7 +1,7 @@
 import { auth } from '../services/auth.js';
 import * as api from '../services/api.js';
 import * as notify from '../components/notification.js';
-import { openModal } from '../components/modal.js';
+import { confirmModal, openModal } from '../components/modal.js';
 import { formatRupiah, formatDate, getAppOpenISODate, escapeHtml } from '../utils/helpers.js';
 
 let sales = [];
@@ -82,6 +82,7 @@ function getStockBadgeClass(stock) {
 function renderBackofficeSales() {
   const isOutlet = auth.isOutlet();
   const canCreate = auth.isAdmin();
+  const canDelete = auth.isAdmin();
 
   return `
     <div class="page-header">
@@ -116,10 +117,11 @@ function renderBackofficeSales() {
             <th>Items</th>
             <th>Total</th>
             <th>Dicatat oleh</th>
+            ${canDelete ? '<th>Aksi</th>' : ''}
           </tr>
         </thead>
         <tbody id="sales-tbody">
-          <tr><td colspan="6"><div class="loading-spinner"><div class="spinner"></div></div></td></tr>
+          <tr><td colspan="${canDelete ? 7 : 6}"><div class="loading-spinner"><div class="spinner"></div></div></td></tr>
         </tbody>
       </table>
     </div>
@@ -226,9 +228,10 @@ export function renderSales() {
 function renderSalesRows(data) {
   const tbody = document.getElementById('sales-tbody');
   if (!tbody) return;
+  const canDelete = auth.isAdmin();
 
   if (!data.length) {
-    tbody.innerHTML = '<tr><td colspan="6"><div class="table-empty"><span class="material-icons-round">point_of_sale</span><p>Belum ada data penjualan</p></div></td></tr>';
+    tbody.innerHTML = `<tr><td colspan="${canDelete ? 7 : 6}"><div class="table-empty"><span class="material-icons-round">point_of_sale</span><p>Belum ada data penjualan</p></div></td></tr>`;
     return;
   }
 
@@ -240,6 +243,14 @@ function renderSalesRows(data) {
       <td>${(s.sale_items || []).length} item</td>
       <td><strong style="color: var(--success);">${formatRupiah(s.total_amount)}</strong></td>
       <td style="color: var(--text-muted);">${s.profiles?.nama || '-'}</td>
+      ${canDelete ? `
+        <td class="table-action-cell">
+          <button type="button" class="btn btn-ghost btn-sm icon-btn-danger" data-delete-sale="${s.id}" title="Hapus transaksi">
+            <span class="material-icons-round">delete</span>
+            Hapus
+          </button>
+        </td>
+      ` : ''}
     </tr>
   `).join('');
 
@@ -272,6 +283,28 @@ function renderSalesRows(data) {
       </div>
     </div>
   `;
+}
+
+async function deleteSaleFromBackoffice(saleId) {
+  const sale = sales.find(row => row.id === saleId);
+  const saleCode = sale?.sale_code || saleId;
+  const confirmed = await confirmModal(
+    'Hapus transaksi',
+    `Transaksi ${saleCode} akan dihapus dan stok produk akan dikembalikan. Lanjutkan?`
+  );
+  if (!confirmed) return;
+
+  try {
+    await api.deleteSale(saleId);
+    notify.success(`Transaksi ${saleCode} berhasil dihapus.`);
+    await loadBackofficeSales({
+      outlet_id: document.getElementById('filter-outlet')?.value || '',
+      date_from: document.getElementById('filter-date-from')?.value,
+      date_to: document.getElementById('filter-date-to')?.value,
+    });
+  } catch (err) {
+    notify.error('Gagal menghapus transaksi: ' + err.message);
+  }
 }
 
 async function loadBackofficeSales(filters = {}) {
@@ -749,6 +782,14 @@ async function initBackofficeSales() {
   });
 
   document.getElementById('btn-new-sale')?.addEventListener('click', openNewSaleModalForAdmin);
+
+  document.getElementById('sales-tbody')?.addEventListener('click', async (event) => {
+    const deleteBtn = event.target.closest('[data-delete-sale]');
+    if (!deleteBtn) return;
+    const saleId = deleteBtn.dataset.deleteSale;
+    if (!saleId) return;
+    await deleteSaleFromBackoffice(saleId);
+  });
 }
 
 async function initOutletSales() {

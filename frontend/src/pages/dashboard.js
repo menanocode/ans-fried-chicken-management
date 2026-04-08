@@ -150,11 +150,6 @@ export async function initDashboard() {
       `;
     }
 
-    // Show notification dot if there are alerts
-    if (stats.pendingRequests > 0 || stats.lowStockCount > 0) {
-      const dot = document.getElementById('notification-dot');
-      if (dot) dot.style.display = 'block';
-    }
   } catch (err) {
     console.error('Dashboard error:', err);
   }
