@@ -21,21 +21,37 @@ const menuItems = [
   ]},
 ];
 
+function getVisibleMenuByRole(role) {
+  return menuItems
+    .map(section => ({
+      ...section,
+      items: section.items.filter(item => item.roles.includes(role)),
+    }))
+    .filter(section => section.items.length > 0);
+}
+
+function getOutletBottomNavItems() {
+  return [
+    { id: 'dashboard', icon: 'dashboard', label: 'Home' },
+    { id: 'stock', icon: 'inventory_2', label: 'Stok' },
+    { id: 'requests', icon: 'local_shipping', label: 'Minta' },
+    { id: 'sales', icon: 'point_of_sale', label: 'Kasir' },
+  ];
+}
+
 export function renderSidebar(activePage) {
   const role = auth.getRole();
   const userName = auth.getUserName();
   const initials = auth.getInitials();
   const outletName = auth.profile?.outlets?.nama || '';
   const roleLabel = role === 'admin' ? 'Admin Pusat' : role === 'outlet' ? outletName : 'Manajemen';
+  const visibleSections = getVisibleMenuByRole(role);
 
   let navHtml = '';
-  for (const section of menuItems) {
-    const visibleItems = section.items.filter(item => item.roles.includes(role));
-    if (visibleItems.length === 0) continue;
-
+  for (const section of visibleSections) {
     navHtml += `<div class="sidebar-section">
       <div class="sidebar-section-title">${section.section}</div>
-      ${visibleItems.map(item => `
+      ${section.items.map(item => `
         <a class="sidebar-link ${activePage === item.id ? 'active' : ''}" data-page="${item.id}">
           <span class="material-icons-round">${item.icon}</span>
           <span>${item.label}</span>
@@ -71,6 +87,26 @@ export function renderSidebar(activePage) {
   `;
 }
 
+export function renderBottomNav(activePage) {
+  if (!auth.isOutlet()) return '';
+  const items = getOutletBottomNavItems();
+
+  return `
+    <nav class="mobile-bottom-nav" id="mobile-bottom-nav">
+      ${items.map(item => `
+        <button
+          type="button"
+          class="mobile-bottom-nav-item ${activePage === item.id ? 'active' : ''}"
+          data-page="${item.id}"
+        >
+          <span class="material-icons-round">${item.icon}</span>
+          <span>${item.label}</span>
+        </button>
+      `).join('')}
+    </nav>
+  `;
+}
+
 export function initSidebarEvents(navigateFn) {
   document.querySelectorAll('.sidebar-link').forEach(link => {
     link.addEventListener('click', () => {
@@ -89,5 +125,14 @@ export function initSidebarEvents(navigateFn) {
   document.getElementById('sidebar-overlay')?.addEventListener('click', () => {
     document.getElementById('sidebar')?.classList.remove('open');
     document.getElementById('sidebar-overlay')?.classList.remove('visible');
+  });
+}
+
+export function initBottomNavEvents(navigateFn) {
+  document.querySelectorAll('.mobile-bottom-nav-item').forEach(button => {
+    button.addEventListener('click', () => {
+      const page = button.dataset.page;
+      if (page) navigateFn(page);
+    });
   });
 }

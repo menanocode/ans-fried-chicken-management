@@ -1,6 +1,6 @@
 import './styles/main.css';
 import { auth } from './services/auth.js';
-import { renderSidebar, initSidebarEvents } from './components/sidebar.js';
+import { renderSidebar, initBottomNavEvents, initSidebarEvents, renderBottomNav } from './components/sidebar.js';
 import { renderHeader, initHeaderEvents } from './components/header.js';
 import { renderLogin, initLoginEvents } from './pages/login.js';
 import { renderDashboard, initDashboard } from './pages/dashboard.js';
@@ -59,6 +59,7 @@ function navigate(page) {
 
 function renderApp() {
   if (!auth.user || !auth.profile) {
+    document.body.classList.remove('has-mobile-bottom-nav');
     app.innerHTML = renderLogin();
     initLoginEvents(navigate);
     document.title = 'ANS Chicken - Login';
@@ -68,11 +69,14 @@ function renderApp() {
   const page = currentPage;
   const [title, subtitle] = PAGE_TITLES[page] || ['ANS Chicken', ''];
   const renderPage = PAGE_RENDERERS[page];
+  const hasMobileBottomNav = auth.isOutlet();
 
   if (!renderPage) {
     navigate('dashboard');
     return;
   }
+
+  document.body.classList.toggle('has-mobile-bottom-nav', hasMobileBottomNav);
 
   app.innerHTML = `
     ${renderSidebar(page)}
@@ -81,6 +85,7 @@ function renderApp() {
       <main class="main-content fade-in">
         ${renderPage()}
       </main>
+      ${renderBottomNav(page)}
     </div>
   `;
 
@@ -88,6 +93,7 @@ function renderApp() {
 
   // Init events
   initSidebarEvents(navigate);
+  initBottomNavEvents(navigate);
   initHeaderEvents();
 
   // Init page-specific logic
