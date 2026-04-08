@@ -10,6 +10,7 @@ import { renderProducts, initProducts } from './pages/products.js';
 import { renderStock, initStock } from './pages/stock.js';
 import { renderRequests, initRequests } from './pages/requests.js';
 import { renderSales, initSales } from './pages/sales.js';
+import { renderHistory, initHistory } from './pages/history.js';
 import { renderHpp, initHpp } from './pages/hpp.js';
 import { renderReports, initReports } from './pages/reports.js';
 import { initTheme } from './services/theme.js';
@@ -24,6 +25,7 @@ const PAGE_TITLES = {
   stock: ['Stok Gudang', 'Pantau persediaan gudang pusat'],
   requests: ['Permintaan Stok', 'Kelola permintaan stok outlet'],
   sales: ['Penjualan', 'Data penjualan outlet'],
+  history: ['History Transaksi', 'Riwayat transaksi penjualan outlet'],
   hpp: ['HPP & Harga Jual', 'Kalkulasi harga pokok produksi'],
   reports: ['Laporan', 'Analitik dan laporan penjualan'],
 };
@@ -35,6 +37,7 @@ const PAGE_RENDERERS = {
   stock: renderStock,
   requests: renderRequests,
   sales: renderSales,
+  history: renderHistory,
   hpp: renderHpp,
   reports: renderReports,
 };
@@ -46,6 +49,7 @@ const PAGE_INIT = {
   stock: initStock,
   requests: initRequests,
   sales: initSales,
+  history: initHistory,
   hpp: initHpp,
   reports: initReports,
 };

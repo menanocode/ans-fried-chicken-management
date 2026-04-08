@@ -549,6 +549,8 @@ async function checkoutOutletPOS() {
 function bindOutletPOSEvents() {
   const root = document.getElementById('sales-pos-root');
   if (!root) return;
+  if (root.dataset.eventsBound === '1') return;
+  root.dataset.eventsBound = '1';
 
   root.addEventListener('click', async (event) => {
     const categoryBtn = event.target.closest('[data-category]');

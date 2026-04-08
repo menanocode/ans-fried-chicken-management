@@ -12,6 +12,7 @@ const menuItems = [
   { section: 'TRANSAKSI', items: [
     { id: 'requests', icon: 'local_shipping', label: 'Permintaan Stok', roles: ['admin', 'outlet'] },
     { id: 'sales', icon: 'point_of_sale', label: 'Penjualan', roles: ['admin', 'outlet', 'management'] },
+    { id: 'history', icon: 'history', label: 'History Transaksi', roles: ['outlet'] },
   ]},
   { section: 'KEUANGAN', items: [
     { id: 'hpp', icon: 'calculate', label: 'HPP & Harga', roles: ['admin', 'management'] },
@@ -33,9 +34,10 @@ function getVisibleMenuByRole(role) {
 function getOutletBottomNavItems() {
   return [
     { id: 'dashboard', icon: 'dashboard', label: 'Home' },
+    { id: 'sales', icon: 'point_of_sale', label: 'Kasir' },
+    { id: 'history', icon: 'history', label: 'Riwayat' },
     { id: 'stock', icon: 'inventory_2', label: 'Stok' },
     { id: 'requests', icon: 'local_shipping', label: 'Minta' },
-    { id: 'sales', icon: 'point_of_sale', label: 'Kasir' },
   ];
 }
 
@@ -98,7 +100,7 @@ export function renderBottomNav(activePage) {
   const items = getOutletBottomNavItems();
 
   return `
-    <nav class="mobile-bottom-nav" id="mobile-bottom-nav">
+    <nav class="mobile-bottom-nav" id="mobile-bottom-nav" style="grid-template-columns: repeat(${items.length}, minmax(0, 1fr));">
       ${items.map(item => `
         <button
           type="button"
