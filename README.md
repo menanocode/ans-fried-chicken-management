@@ -39,9 +39,7 @@ Di Supabase Dashboard → SQL Editor, jalankan file SQL secara berurutan:
 
 ### 3. Buat User Admin
 
-Di Supabase Dashboard → Authentication → Users → Add User:
-- Email: `admin@ans.com`
-- Password: `admin123` (ganti di production!)
+
 
 Lalu di SQL Editor, update profilenya:
 ```sql
