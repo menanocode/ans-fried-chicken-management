@@ -6,7 +6,7 @@ export function renderDashboard() {
   return `
     <div class="page-header">
       <div>
-        <h2>Dashboard</h2>
+        <h2>ANS Chicken</h2>
         <p>Selamat datang kembali, ${auth.getUserName()} 👋</p>
       </div>
     </div>
