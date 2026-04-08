@@ -60,6 +60,7 @@ function navigate(page) {
 function renderApp() {
   if (!auth.user || !auth.profile) {
     document.body.classList.remove('has-mobile-bottom-nav');
+    document.body.classList.remove('sidebar-open-mobile');
     app.innerHTML = renderLogin();
     initLoginEvents(navigate);
     document.title = 'ANS Chicken - Login';

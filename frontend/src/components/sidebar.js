@@ -39,6 +39,12 @@ function getOutletBottomNavItems() {
   ];
 }
 
+function closeMobileSidebar() {
+  document.getElementById('sidebar')?.classList.remove('open');
+  document.getElementById('sidebar-overlay')?.classList.remove('visible');
+  document.body.classList.remove('sidebar-open-mobile');
+}
+
 export function renderSidebar(activePage) {
   const role = auth.getRole();
   const userName = auth.getUserName();
@@ -112,19 +118,17 @@ export function initSidebarEvents(navigateFn) {
     link.addEventListener('click', () => {
       const page = link.dataset.page;
       navigateFn(page);
-      // Close mobile sidebar
-      document.getElementById('sidebar')?.classList.remove('open');
-      document.getElementById('sidebar-overlay')?.classList.remove('visible');
+      closeMobileSidebar();
     });
   });
 
   document.getElementById('sidebar-user')?.addEventListener('click', () => {
+    closeMobileSidebar();
     auth.logout();
   });
 
   document.getElementById('sidebar-overlay')?.addEventListener('click', () => {
-    document.getElementById('sidebar')?.classList.remove('open');
-    document.getElementById('sidebar-overlay')?.classList.remove('visible');
+    closeMobileSidebar();
   });
 }
 
@@ -132,6 +136,7 @@ export function initBottomNavEvents(navigateFn) {
   document.querySelectorAll('.mobile-bottom-nav-item').forEach(button => {
     button.addEventListener('click', () => {
       const page = button.dataset.page;
+      closeMobileSidebar();
       if (page) navigateFn(page);
     });
   });

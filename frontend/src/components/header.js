@@ -44,7 +44,12 @@ export function initHeaderEvents() {
   });
 
   document.getElementById('menu-toggle')?.addEventListener('click', () => {
-    document.getElementById('sidebar')?.classList.toggle('open');
-    document.getElementById('sidebar-overlay')?.classList.toggle('visible');
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebar-overlay');
+    if (!sidebar || !overlay) return;
+
+    const isOpen = sidebar.classList.toggle('open');
+    overlay.classList.toggle('visible', isOpen);
+    document.body.classList.toggle('sidebar-open-mobile', isOpen);
   });
 }
