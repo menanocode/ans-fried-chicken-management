@@ -1,7 +1,7 @@
 import Chart from 'chart.js/auto';
 import * as api from '../services/api.js';
 import * as notify from '../components/notification.js';
-import { formatRupiah, toISODate, exportCSV } from '../utils/helpers.js';
+import { formatRupiah, getAppOpenISODate, exportCSV } from '../utils/helpers.js';
 
 let salesByOutletChart = null;
 let salesTrendChart = null;
@@ -25,8 +25,8 @@ export function renderReports() {
 
     <div id="tab-sales">
       <div class="filter-bar">
-        <input type="date" class="form-input" id="rpt-date-from" value="${toISODate(new Date(Date.now() - 30 * 86400000))}">
-        <input type="date" class="form-input" id="rpt-date-to" value="${toISODate(new Date())}">
+        <input type="date" class="form-input" id="rpt-date-from" value="${getAppOpenISODate()}">
+        <input type="date" class="form-input" id="rpt-date-to" value="${getAppOpenISODate()}">
         <button class="btn btn-primary btn-sm" id="btn-load-report">
           <span class="material-icons-round">refresh</span> Load
         </button>

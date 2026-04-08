@@ -21,9 +21,17 @@ export function formatDateTime(dateStr) {
   });
 }
 
+const APP_OPEN_DATE = new Date();
+const APP_OPEN_ISO_DATE = APP_OPEN_DATE.toISOString().split('T')[0];
+
 // Short date YYYY-MM-DD
 export function toISODate(date) {
   return date ? new Date(date).toISOString().split('T')[0] : '';
+}
+
+// Date at first app load (stable per browser tab/session)
+export function getAppOpenISODate() {
+  return APP_OPEN_ISO_DATE;
 }
 
 // Status badge HTML

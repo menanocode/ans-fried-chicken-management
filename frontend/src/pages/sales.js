@@ -2,7 +2,7 @@ import { auth } from '../services/auth.js';
 import * as api from '../services/api.js';
 import * as notify from '../components/notification.js';
 import { openModal } from '../components/modal.js';
-import { formatRupiah, formatDate, toISODate, escapeHtml } from '../utils/helpers.js';
+import { formatRupiah, formatDate, getAppOpenISODate, escapeHtml } from '../utils/helpers.js';
 
 let sales = [];
 let products = [];
@@ -13,7 +13,7 @@ const posState = {
   search: '',
   cart: [],
   payment: 'tunai',
-  date: toISODate(new Date()),
+  date: getAppOpenISODate(),
   notes: '',
   stockMap: {},
   dayTransactionCount: 0,
@@ -99,8 +99,8 @@ function renderBackofficeSales() {
       <select class="form-select" id="filter-outlet">
         <option value="">Semua Outlet</option>
       </select>
-      <input type="date" class="form-input" id="filter-date-from" value="${toISODate(new Date(Date.now() - 30 * 86400000))}">
-      <input type="date" class="form-input" id="filter-date-to" value="${toISODate(new Date())}">
+      <input type="date" class="form-input" id="filter-date-from" value="${getAppOpenISODate()}">
+      <input type="date" class="form-input" id="filter-date-to" value="${getAppOpenISODate()}">
       <button class="btn btn-secondary" id="btn-filter-sales">
         <span class="material-icons-round">filter_list</span> Filter
       </button>
@@ -602,7 +602,7 @@ function bindOutletPOSEvents() {
   });
 
   document.getElementById('sales-pos-date')?.addEventListener('change', async (event) => {
-    posState.date = event.target.value || toISODate(new Date());
+    posState.date = event.target.value || getAppOpenISODate();
     await refreshOutletPOSData();
     syncOutletPOSView();
   });
@@ -629,7 +629,7 @@ async function openNewSaleModalForAdmin() {
     </div>
     <div class="form-group">
       <label class="form-label">Tanggal</label>
-      <input type="date" class="form-input" id="f-sale-date" value="${toISODate(new Date())}">
+      <input type="date" class="form-input" id="f-sale-date" value="${getAppOpenISODate()}">
     </div>
     <div id="sale-items">
       <div class="form-row sale-item" data-idx="0">
@@ -754,7 +754,7 @@ async function initOutletSales() {
   posState.search = '';
   posState.cart = [];
   posState.payment = 'tunai';
-  posState.date = toISODate(new Date());
+  posState.date = getAppOpenISODate();
   posState.notes = '';
   posState.stockMap = {};
   posState.dayTransactionCount = 0;
