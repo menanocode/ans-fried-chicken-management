@@ -1,5 +1,6 @@
 import './styles/main.css';
 import { auth } from './services/auth.js';
+import { clearApiCache } from './services/api.js';
 import { renderSidebar, initBottomNavEvents, initSidebarEvents, renderBottomNav } from './components/sidebar.js';
 import { renderHeader, initHeaderEvents } from './components/header.js';
 import { renderLogin, initLoginEvents } from './pages/login.js';
@@ -95,7 +96,12 @@ function renderApp() {
   // Init events
   initSidebarEvents(navigate);
   initBottomNavEvents(navigate);
-  initHeaderEvents();
+  initHeaderEvents({
+    onRefresh: async () => {
+      clearApiCache();
+      renderApp();
+    },
+  });
 
   // Init page-specific logic
   const initPage = PAGE_INIT[page];

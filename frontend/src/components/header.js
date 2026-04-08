@@ -16,6 +16,9 @@ export function renderHeader(title, subtitle) {
         <button class="header-btn" id="theme-toggle" title="Ubah tema">
           <span class="material-icons-round" id="theme-toggle-icon">dark_mode</span>
         </button>
+        <button class="header-btn" id="header-refresh" title="Refresh halaman">
+          <span class="material-icons-round">refresh</span>
+        </button>
         <button class="header-btn" id="header-notifications" title="Notifikasi">
           <span class="material-icons-round">notifications</span>
           <span class="notification-dot" id="notification-dot" style="display:none;"></span>
@@ -25,7 +28,7 @@ export function renderHeader(title, subtitle) {
   `;
 }
 
-export function initHeaderEvents() {
+export function initHeaderEvents({ onRefresh } = {}) {
   const syncThemeButton = () => {
     const iconEl = document.getElementById('theme-toggle-icon');
     const buttonEl = document.getElementById('theme-toggle');
@@ -41,6 +44,17 @@ export function initHeaderEvents() {
   document.getElementById('theme-toggle')?.addEventListener('click', () => {
     toggleTheme();
     syncThemeButton();
+  });
+
+  const refreshBtn = document.getElementById('header-refresh');
+  refreshBtn?.addEventListener('click', async () => {
+    if (refreshBtn.classList.contains('loading')) return;
+    refreshBtn.classList.add('loading');
+    try {
+      if (typeof onRefresh === 'function') await onRefresh();
+    } finally {
+      window.setTimeout(() => refreshBtn.classList.remove('loading'), 200);
+    }
   });
 
   document.getElementById('menu-toggle')?.addEventListener('click', () => {

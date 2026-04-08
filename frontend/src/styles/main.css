@@ -430,6 +430,15 @@ a:hover { color: var(--orange-300); }
   border-color: var(--border-light);
 }
 
+.header-btn.loading {
+  opacity: 0.8;
+  pointer-events: none;
+}
+
+.header-btn.loading .material-icons-round {
+  animation: spin 0.8s linear infinite;
+}
+
 .header-btn .notification-dot {
   position: absolute;
   top: 8px;
