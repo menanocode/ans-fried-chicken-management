@@ -11,6 +11,7 @@ export function renderDashboard() {
       </div>
     </div>
     <div class="stats-grid stagger" id="stats-grid">
+      ${!auth.isOutlet() ? `
       <div class="stat-card">
         <div class="stat-icon blue"><span class="material-icons-round">store</span></div>
         <div class="stat-info">
@@ -19,6 +20,7 @@ export function renderDashboard() {
           <div class="stat-change">unit operasional</div>
         </div>
       </div>
+      ` : ''}
       <div class="stat-card">
         <div class="stat-icon orange"><span class="material-icons-round">local_shipping</span></div>
         <div class="stat-info">
@@ -93,7 +95,8 @@ export async function initDashboard() {
   try {
     const stats = await getDashboardStats();
 
-    document.getElementById('stat-outlets').textContent = stats.totalOutlets;
+    const statOutlets = document.getElementById('stat-outlets');
+    if (statOutlets) statOutlets.textContent = stats.totalOutlets;
     document.getElementById('stat-pending').textContent = stats.pendingRequests;
     document.getElementById('stat-revenue').textContent = formatRupiah(stats.todayRevenue);
     const statProfit = document.getElementById('stat-profit');
