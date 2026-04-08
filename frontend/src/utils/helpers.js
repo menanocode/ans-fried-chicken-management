@@ -21,12 +21,21 @@ export function formatDateTime(dateStr) {
   });
 }
 
+function toLocalISODate(value) {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 const APP_OPEN_DATE = new Date();
-const APP_OPEN_ISO_DATE = APP_OPEN_DATE.toISOString().split('T')[0];
+const APP_OPEN_ISO_DATE = toLocalISODate(APP_OPEN_DATE);
 
 // Short date YYYY-MM-DD
 export function toISODate(date) {
-  return date ? new Date(date).toISOString().split('T')[0] : '';
+  return date ? toLocalISODate(date) : '';
 }
 
 // Date at first app load (stable per browser tab/session)

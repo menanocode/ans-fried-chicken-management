@@ -1,5 +1,6 @@
 import { supabase } from '../config/supabase.js';
 import { auth } from './auth.js';
+import { toISODate } from '../utils/helpers.js';
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const apiCache = new Map();
@@ -356,7 +357,7 @@ export async function createSale(outletId, items, tanggal, notes) {
     .insert({
       outlet_id: outletId,
       recorded_by: auth.user.id,
-      tanggal: tanggal || new Date().toISOString().split('T')[0],
+      tanggal: tanggal || toISODate(new Date()),
       total_amount: totalAmount,
       notes
     }).select().single();
@@ -380,7 +381,7 @@ export async function createSale(outletId, items, tanggal, notes) {
 
 // ======== DASHBOARD STATS ========
 export async function getDashboardStats() {
-  const today = new Date().toISOString().split('T')[0];
+  const today = toISODate(new Date());
   return cachedQuery('dashboard:stats', { today }, async () => {
     const [
       { count: totalOutlets },
