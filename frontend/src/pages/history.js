@@ -5,6 +5,11 @@ import { confirmModal } from '../components/modal.js';
 import { formatDate, formatRupiah, getAppOpenISODate, escapeHtml } from '../utils/helpers.js';
 
 let historyRows = [];
+const DELETED_TAG = '[ANS_DELETED]';
+
+function visibleHistoryRows(rows) {
+  return (rows || []).filter(row => !String(row?.notes || '').includes(DELETED_TAG));
+}
 
 export function renderHistory() {
   if (!auth.isOutlet()) {
@@ -58,11 +63,12 @@ export function renderHistory() {
 }
 
 function renderHistoryRows(rows) {
+  const visibleRows = visibleHistoryRows(rows);
   const tbody = document.getElementById('history-tbody');
   const summary = document.getElementById('history-summary');
   if (!tbody || !summary) return;
 
-  if (!rows.length) {
+  if (!visibleRows.length) {
     tbody.innerHTML = '<tr><td colspan="6"><div class="table-empty"><span class="material-icons-round">history</span><p>Belum ada transaksi pada rentang tanggal ini</p></div></td></tr>';
     summary.innerHTML = `
       <div class="stat-card">
@@ -81,7 +87,7 @@ function renderHistoryRows(rows) {
     return;
   }
 
-  tbody.innerHTML = rows.map(row => {
+  tbody.innerHTML = visibleRows.map(row => {
     const itemCount = (row.sale_items || []).reduce((sum, item) => sum + Number(item.jumlah || 0), 0);
     return `
       <tr>
@@ -100,13 +106,13 @@ function renderHistoryRows(rows) {
     `;
   }).join('');
 
-  const totalAmount = rows.reduce((sum, row) => sum + Number(row.total_amount || 0), 0);
-  const totalItems = rows.reduce((sum, row) => sum + (row.sale_items || []).reduce((itemSum, item) => itemSum + Number(item.jumlah || 0), 0), 0);
+  const totalAmount = visibleRows.reduce((sum, row) => sum + Number(row.total_amount || 0), 0);
+  const totalItems = visibleRows.reduce((sum, row) => sum + (row.sale_items || []).reduce((itemSum, item) => itemSum + Number(item.jumlah || 0), 0), 0);
 
   summary.innerHTML = `
     <div class="stat-card">
       <div class="stat-icon blue"><span class="material-icons-round">receipt_long</span></div>
-      <div class="stat-info"><div class="stat-label">Transaksi</div><div class="stat-value">${rows.length}</div></div>
+      <div class="stat-info"><div class="stat-label">Transaksi</div><div class="stat-value">${visibleRows.length}</div></div>
     </div>
     <div class="stat-card">
       <div class="stat-icon orange"><span class="material-icons-round">fastfood</span></div>

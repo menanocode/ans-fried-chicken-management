@@ -7,6 +7,7 @@ import { formatRupiah, formatDate, getAppOpenISODate, escapeHtml } from '../util
 let sales = [];
 let products = [];
 let outlets = [];
+const DELETED_TAG = '[ANS_DELETED]';
 
 const posState = {
   category: 'all',
@@ -226,16 +227,17 @@ export function renderSales() {
 }
 
 function renderSalesRows(data) {
+  const visibleSales = (data || []).filter(row => !String(row?.notes || '').includes(DELETED_TAG));
   const tbody = document.getElementById('sales-tbody');
   if (!tbody) return;
   const canDelete = auth.isAdmin();
 
-  if (!data.length) {
+  if (!visibleSales.length) {
     tbody.innerHTML = `<tr><td colspan="${canDelete ? 7 : 6}"><div class="table-empty"><span class="material-icons-round">point_of_sale</span><p>Belum ada data penjualan</p></div></td></tr>`;
     return;
   }
 
-  tbody.innerHTML = data.map(s => `
+  tbody.innerHTML = visibleSales.map(s => `
     <tr>
       <td><strong style="color: var(--orange-400);">${s.sale_code || '-'}</strong></td>
       <td>${s.outlets?.nama || '-'}</td>
@@ -254,8 +256,8 @@ function renderSalesRows(data) {
     </tr>
   `).join('');
 
-  const totalRevenue = data.reduce((sum, row) => sum + Number(row.total_amount), 0);
-  const totalItems = data.reduce((sum, row) => sum + (row.sale_items || []).reduce((itemSum, item) => itemSum + item.jumlah, 0), 0);
+  const totalRevenue = visibleSales.reduce((sum, row) => sum + Number(row.total_amount), 0);
+  const totalItems = visibleSales.reduce((sum, row) => sum + (row.sale_items || []).reduce((itemSum, item) => itemSum + item.jumlah, 0), 0);
 
   const summary = document.getElementById('sales-summary');
   if (!summary) return;
@@ -272,7 +274,7 @@ function renderSalesRows(data) {
       <div class="stat-icon blue"><span class="material-icons-round">receipt_long</span></div>
       <div class="stat-info">
         <div class="stat-label">Jumlah Transaksi</div>
-        <div class="stat-value">${data.length}</div>
+        <div class="stat-value">${visibleSales.length}</div>
       </div>
     </div>
     <div class="stat-card">

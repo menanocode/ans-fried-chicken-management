@@ -561,10 +561,26 @@ export async function deleteSale(saleId) {
 
   if (!deletedSale) {
     const { data: sale, error: saleError } = await supabase.from('sales')
-      .select('id, sale_code, outlet_id, total_amount, sale_items(product_id, jumlah)')
+      .select('id, sale_code, outlet_id, total_amount, notes, sale_items(product_id, jumlah)')
       .eq('id', saleId)
       .single();
     if (saleError) throw saleError;
+
+    const originalNotes = sale.notes ? String(sale.notes) : '';
+    const hasDeleteTag = originalNotes.includes(SOFT_DELETE_TAG);
+    const deleteStamp = hasDeleteTag ? '' : `${SOFT_DELETE_TAG} ${new Date().toISOString()}`;
+    const updatedNotes = [deleteStamp, originalNotes].filter(Boolean).join('\n');
+
+    // Tandai dulu sebagai deleted agar langsung tersembunyi dari UI.
+    const { data: softDeletedSale, error: softDeleteError } = await supabase.from('sales')
+      .update({
+        total_amount: 0,
+        notes: updatedNotes,
+      })
+      .eq('id', saleId)
+      .select('id, sale_code, outlet_id, total_amount, notes')
+      .single();
+    if (softDeleteError) throw softDeleteError;
 
     const itemMap = new Map();
     (sale.sale_items || []).forEach(item => {
@@ -601,19 +617,6 @@ export async function deleteSale(saleId) {
     } else if (!isDeletePermissionError(deleteError)) {
       throw deleteError;
     } else {
-      const originalNotes = sale.notes ? String(sale.notes) : '';
-      const deleteStamp = `${SOFT_DELETE_TAG} ${new Date().toISOString()}`;
-      const updatedNotes = [deleteStamp, originalNotes].filter(Boolean).join('\n');
-      const { data: softDeletedSale, error: softDeleteError } = await supabase.from('sales')
-        .update({
-          total_amount: 0,
-          notes: updatedNotes,
-        })
-        .eq('id', saleId)
-        .select('id, sale_code, outlet_id, total_amount, notes')
-        .single();
-
-      if (softDeleteError) throw softDeleteError;
       deletedSale = softDeletedSale;
     }
   }
