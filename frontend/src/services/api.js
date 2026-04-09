@@ -5,6 +5,7 @@ import { toISODate } from '../utils/helpers.js';
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const apiCache = new Map();
+const SOFT_DELETE_TAG = '[ANS_DELETED]';
 
 function cacheKey(scope, params = null) {
   return `${scope}:${JSON.stringify(params)}`;
@@ -82,6 +83,25 @@ function isMissingRpcError(error) {
     code === 'PGRST202' ||
     message.includes('delete_sale_with_stock_restore') && message.includes('not found')
   );
+}
+
+function isDeletePermissionError(error) {
+  const code = error?.code || '';
+  const message = String(error?.message || '').toLowerCase();
+  return (
+    code === '42501' ||
+    message.includes('permission denied') ||
+    message.includes('row-level security')
+  );
+}
+
+function isSoftDeletedSale(sale) {
+  const notes = String(sale?.notes || '');
+  return notes.includes(SOFT_DELETE_TAG);
+}
+
+function filterSoftDeletedSales(rows) {
+  return (rows || []).filter(row => !isSoftDeletedSale(row));
 }
 
 // ======== OUTLETS ========
@@ -485,7 +505,7 @@ export async function getSales(filters = {}) {
     
     const { data, error } = await query.order('created_at', { ascending: false });
     if (error) throw error;
-    return data;
+    return filterSoftDeletedSales(data);
   });
 }
 
@@ -535,7 +555,7 @@ export async function deleteSale(saleId) {
   let deletedSale = null;
   if (!rpcError) {
     deletedSale = Array.isArray(rpcDeletedSale) ? rpcDeletedSale[0] : rpcDeletedSale;
-  } else if (!isMissingRpcError(rpcError)) {
+  } else if (!isMissingRpcError(rpcError) && !isDeletePermissionError(rpcError)) {
     throw rpcError;
   }
 
@@ -558,25 +578,44 @@ export async function deleteSale(saleId) {
         .select('product_id, stok_tersedia')
         .eq('outlet_id', sale.outlet_id)
         .in('product_id', productIds);
-      if (stockError) throw stockError;
+      if (stockError && !isDeletePermissionError(stockError)) throw stockError;
 
-      const stockMap = new Map((stockRows || []).map(row => [row.product_id, Number(row.stok_tersedia || 0)]));
-      const restoreRows = productIds.map(productId => ({
-        outlet_id: sale.outlet_id,
-        product_id: productId,
-        stok_tersedia: (stockMap.get(productId) || 0) + (itemMap.get(productId) || 0),
-        updated_at: new Date().toISOString(),
-      }));
+      if (!stockError) {
+        const stockMap = new Map((stockRows || []).map(row => [row.product_id, Number(row.stok_tersedia || 0)]));
+        const restoreRows = productIds.map(productId => ({
+          outlet_id: sale.outlet_id,
+          product_id: productId,
+          stok_tersedia: (stockMap.get(productId) || 0) + (itemMap.get(productId) || 0),
+          updated_at: new Date().toISOString(),
+        }));
 
-      const { error: restoreError } = await supabase.from('outlet_stock')
-        .upsert(restoreRows, { onConflict: 'outlet_id,product_id' });
-      if (restoreError) throw restoreError;
+        const { error: restoreError } = await supabase.from('outlet_stock')
+          .upsert(restoreRows, { onConflict: 'outlet_id,product_id' });
+        if (restoreError && !isDeletePermissionError(restoreError)) throw restoreError;
+      }
     }
 
     const { error: deleteError } = await supabase.from('sales').delete().eq('id', saleId);
-    if (deleteError) throw deleteError;
+    if (!deleteError) {
+      deletedSale = sale;
+    } else if (!isDeletePermissionError(deleteError)) {
+      throw deleteError;
+    } else {
+      const originalNotes = sale.notes ? String(sale.notes) : '';
+      const deleteStamp = `${SOFT_DELETE_TAG} ${new Date().toISOString()}`;
+      const updatedNotes = [deleteStamp, originalNotes].filter(Boolean).join('\n');
+      const { data: softDeletedSale, error: softDeleteError } = await supabase.from('sales')
+        .update({
+          total_amount: 0,
+          notes: updatedNotes,
+        })
+        .eq('id', saleId)
+        .select('id, sale_code, outlet_id, total_amount, notes')
+        .single();
 
-    deletedSale = sale;
+      if (softDeleteError) throw softDeleteError;
+      deletedSale = softDeletedSale;
+    }
   }
 
   invalidateCache();
@@ -608,9 +647,11 @@ export async function getDashboardStats() {
       supabase.from('warehouse_stock').select('*, products(nama, satuan)'),
     ]);
 
+    const visibleTodaySales = filterSoftDeletedSales(todaySales || []);
+
     let todayRevenue = 0;
     let todayProfit = 0;
-    (todaySales || []).forEach(s => {
+    visibleTodaySales.forEach(s => {
       todayRevenue += Number(s.total_amount);
       (s.sale_items || []).forEach(item => {
         todayProfit += (Number(item.harga_jual) - Number(item.hpp_saat_ini)) * Number(item.jumlah);
@@ -624,7 +665,7 @@ export async function getDashboardStats() {
       pendingRequests: pendingRequests || 0,
       todayRevenue,
       todayProfit,
-      todaySalesCount: todaySales?.length || 0,
+      todaySalesCount: visibleTodaySales.length,
       lowStockItems,
       lowStockCount: lowStockItems.length,
     };
@@ -641,7 +682,7 @@ export async function getSalesReport(filters = {}) {
     if (filters.outlet_id) query = query.eq('outlet_id', filters.outlet_id);
     const { data, error } = await query.order('tanggal');
     if (error) throw error;
-    return data;
+    return filterSoftDeletedSales(data);
   });
 }
 
@@ -653,10 +694,11 @@ export async function getSalesByOutlet(filters = {}) {
     if (filters.date_to) query = query.lte('tanggal', filters.date_to);
     const { data, error } = await query;
     if (error) throw error;
+    const visibleSales = filterSoftDeletedSales(data);
 
     // Aggregate by outlet
     const map = {};
-    (data || []).forEach(s => {
+    visibleSales.forEach(s => {
       const key = s.outlet_id;
       if (!map[key]) map[key] = { outlet: s.outlets?.nama || 'Unknown', total: 0, count: 0, profit: 0 };
       map[key].total += Number(s.total_amount);
