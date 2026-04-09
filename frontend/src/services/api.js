@@ -631,6 +631,21 @@ export async function deleteSale(saleId) {
     description: `Transaksi ${deletedSale.sale_code || saleId} telah dihapus.`,
     metadata: { total_amount: deletedSale.total_amount || 0 },
   });
+
+  if (auth.isAdmin() && deletedSale.outlet_id) {
+    queueActivityLog({
+      action: 'delete',
+      entity_type: 'sale',
+      entity_id: deletedSale.id || saleId,
+      outlet_id: deletedSale.outlet_id,
+      title: 'Admin menghapus transaksi outlet',
+      description: `Admin menghapus transaksi ${deletedSale.sale_code || saleId} milik outlet Anda.`,
+      metadata: {
+        deleted_by: auth.getUserName(),
+        total_amount: deletedSale.total_amount || 0,
+      },
+    });
+  }
   return deletedSale;
 }
 
