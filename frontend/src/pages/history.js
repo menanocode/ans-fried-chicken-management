@@ -3,6 +3,8 @@ import * as api from '../services/api.js';
 import * as notify from '../components/notification.js';
 import { confirmModal } from '../components/modal.js';
 import { formatDate, formatRupiah, getAppOpenISODate, escapeHtml } from '../utils/helpers.js';
+import { buildReceiptData } from '../utils/receipt.js';
+import { openReceiptActions } from '../utils/receipt-actions.js';
 
 let historyRows = [];
 const DELETED_TAG = '[ANS_DELETED]';
@@ -97,6 +99,10 @@ function renderHistoryRows(rows) {
         <td><strong style="color: var(--success);">${formatRupiah(row.total_amount)}</strong></td>
         <td style="max-width: 300px; white-space: normal;">${row.notes ? escapeHtml(row.notes) : '-'}</td>
         <td class="table-action-cell">
+          <button type="button" class="btn btn-secondary btn-sm" data-print-history-sale="${row.id}" title="Cetak struk">
+            <span class="material-icons-round">print</span>
+            Cetak
+          </button>
           <button type="button" class="btn btn-ghost btn-sm icon-btn-danger" data-delete-history-sale="${row.id}" title="Hapus transaksi">
             <span class="material-icons-round">delete</span>
             Hapus
@@ -171,6 +177,20 @@ export async function initHistory() {
   await loadHistory();
   document.getElementById('btn-filter-history')?.addEventListener('click', loadHistory);
   document.getElementById('history-tbody')?.addEventListener('click', async (event) => {
+    const printBtn = event.target.closest('[data-print-history-sale]');
+    if (printBtn) {
+      const saleId = printBtn.dataset.printHistorySale;
+      const sale = historyRows.find(row => row.id === saleId);
+      if (!sale) {
+        notify.error('Data transaksi tidak ditemukan.');
+        return;
+      }
+      await openReceiptActions(buildReceiptData(sale, {
+        cashierName: sale?.profiles?.nama || auth.getUserName(),
+      }));
+      return;
+    }
+
     const deleteBtn = event.target.closest('[data-delete-history-sale]');
     if (!deleteBtn) return;
     const saleId = deleteBtn.dataset.deleteHistorySale;

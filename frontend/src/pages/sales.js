@@ -3,6 +3,8 @@ import * as api from '../services/api.js';
 import * as notify from '../components/notification.js';
 import { confirmModal, openModal } from '../components/modal.js';
 import { formatRupiah, formatDate, getAppOpenISODate, escapeHtml } from '../utils/helpers.js';
+import { buildReceiptData } from '../utils/receipt.js';
+import { openReceiptActions } from '../utils/receipt-actions.js';
 
 let sales = [];
 let products = [];
@@ -563,7 +565,8 @@ async function checkoutOutletPOS() {
   }));
 
   try {
-    await api.createSale(outletId, payloadItems, posState.date, combinedNotes);
+    const createdSale = await api.createSale(outletId, payloadItems, posState.date, combinedNotes);
+    const completeSale = await api.getSaleById(createdSale.id);
     notify.success('Transaksi berhasil disimpan.');
 
     posState.cart = [];
@@ -573,6 +576,9 @@ async function checkoutOutletPOS() {
 
     await refreshOutletPOSData();
     syncOutletPOSView();
+    await openReceiptActions(buildReceiptData(completeSale, {
+      cashierName: auth.getUserName(),
+    }));
   } catch (err) {
     notify.error('Gagal menyimpan transaksi: ' + err.message);
   } finally {

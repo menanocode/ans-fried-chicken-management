@@ -6,6 +6,7 @@ import { toISODate } from '../utils/helpers.js';
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const apiCache = new Map();
 const SOFT_DELETE_TAG = '[ANS_DELETED]';
+const SALE_SELECT = '*, outlets(nama, alamat, telepon), profiles!sales_recorded_by_fkey(nama), sale_items(*, products(nama, satuan))';
 
 function cacheKey(scope, params = null) {
   return `${scope}:${JSON.stringify(params)}`;
@@ -497,7 +498,7 @@ export async function rejectStockRequest(requestId) {
 export async function getSales(filters = {}) {
   return cachedQuery('sales:list', filters, async () => {
     let query = supabase.from('sales')
-      .select('*, outlets(nama), profiles!sales_recorded_by_fkey(nama), sale_items(*, products(nama, satuan))');
+      .select(SALE_SELECT);
     
     if (filters.outlet_id) query = query.eq('outlet_id', filters.outlet_id);
     if (filters.date_from) query = query.gte('tanggal', filters.date_from);
@@ -506,6 +507,17 @@ export async function getSales(filters = {}) {
     const { data, error } = await query.order('created_at', { ascending: false });
     if (error) throw error;
     return filterSoftDeletedSales(data);
+  });
+}
+
+export async function getSaleById(saleId) {
+  return cachedQuery('sales:detail', { saleId }, async () => {
+    const { data, error } = await supabase.from('sales')
+      .select(SALE_SELECT)
+      .eq('id', saleId)
+      .single();
+    if (error) throw error;
+    return data;
   });
 }
 
